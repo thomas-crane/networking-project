@@ -24,9 +24,9 @@ impl Server for TcpServer {
         // wait for a local connection.
         let (mut socket, from_addr) = self.server.accept().expect("Cannot establish local socket");
 
-        // establish the remote connection. Make sure it goes to the same port.
+        // establish the remote connection.
         let remote_endpoint = self.endpoints.remote_endpoint_for(&from_addr);
-        let remote_endpoint = SocketAddrV4::new(*remote_endpoint, from_addr.port());
+        let remote_endpoint = SocketAddrV4::new(*remote_endpoint, 6860);
         let mut remote_socket =
             TcpStream::connect(remote_endpoint).expect("Cannot establish remote connection");
 

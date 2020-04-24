@@ -6,7 +6,7 @@
 + It supports both TCP and UDP.
 + I'm using it to help collect data for a research project I'm currently doing.
 + The proxy server will always listen for traffic on port `6850`.
-+ The server will forward traffic to the same port on which the traffic was received.
++ The server will always forward traffic to the port `6860`.
 
 ## Usage
 
