@@ -18,7 +18,7 @@ impl UdpServer {
 }
 
 impl Server for UdpServer {
-    fn listen(&self) -> ! {
+    fn listen(&self) -> () {
         loop {
             let mut recv_buf: [u8; 10000] = [0u8; 10_000];
             let (bytes_received, from_addr) = self

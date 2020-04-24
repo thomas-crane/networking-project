@@ -2,7 +2,7 @@ use crate::tcp_server::TcpServer;
 use crate::udp_server::UdpServer;
 
 pub trait Server {
-    fn listen(&self) -> !;
+    fn listen(&self) -> ();
 }
 
 pub fn string_to_server(string: String) -> Box<dyn Server> {

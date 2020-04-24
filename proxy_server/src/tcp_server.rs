@@ -1,8 +1,8 @@
-use std::io::{Read, Write};
-use std::net::{SocketAddrV4, TcpListener, TcpStream};
-use std::thread;
 use crate::endpoints::Endpoints;
 use crate::server::Server;
+use std::io::{Read, Write};
+use std::net::{Shutdown, SocketAddrV4, TcpListener, TcpStream};
+use std::thread;
 
 pub struct TcpServer {
     endpoints: Endpoints,
@@ -16,11 +16,10 @@ impl TcpServer {
 
         Self { endpoints, server }
     }
-
 }
 
 impl Server for TcpServer {
-    fn listen(&self) -> ! {
+    fn listen(&self) -> () {
         // wait for a local connection.
         let (mut socket, from_addr) = self.server.accept().expect("Cannot establish local socket");
 
@@ -42,6 +41,10 @@ impl Server for TcpServer {
                 let bytes_read = remote_socket_clone
                     .read(&mut recv_buf)
                     .expect("Cannot read bytes from remote");
+                if bytes_read == 0 {
+                    println!("Received 0 bytes from remote socket.");
+                    break;
+                }
                 // send to local.
                 socket_clone
                     .write_all(&mut recv_buf[0..bytes_read])
@@ -57,6 +60,23 @@ impl Server for TcpServer {
                 let bytes_read = socket
                     .read(&mut recv_buf)
                     .expect("Cannot read bytes from local");
+                if bytes_read == 0 {
+                    println!("Received 0 bytes from local socket.");
+                    // make sure the sockets are shut down.
+                    socket
+                        .shutdown(Shutdown::Both)
+                        .expect("Cannot shut down local socket");
+                    remote_socket
+                        .shutdown(Shutdown::Both)
+                        .expect("Cannot shut down remote socket");
+                    break;
+                } else {
+                    println!(
+                        "Received {} bytes from {}",
+                        bytes_read,
+                        from_addr.to_string()
+                    );
+                }
 
                 // send to remote.
                 remote_socket
@@ -72,7 +92,5 @@ impl Server for TcpServer {
         remote_recv_thread
             .join()
             .expect("Cannot join remote recv thread");
-
-        panic!("Threads should not end")
     }
 }
