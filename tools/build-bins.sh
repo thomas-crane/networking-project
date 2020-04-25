@@ -13,6 +13,7 @@ projects=(
 mkdir -p bins/
 for project in "${projects[@]}"; do
   pushd "$project"
+  echo "Building $project..."
   ../tools/alpine-build.sh
   cp target/x86_64-unknown-linux-musl/release/$project ../bins/
   popd
