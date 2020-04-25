@@ -10,9 +10,15 @@
 ## Usage
 
 ```bash
-$ cargo run -- MODE
+$ cargo run -- MODE LOG_FILE
 ```
 
 Where
 
 + `MODE` is either `tcp` or `udp`.
++ `LOG_FILE` is the name of the log file to write to.
+
+When the consumer receives some traffic, it will add a new entry to the log file. The log file is in CSV format and contains two columns.
+
++ Timestamp - the unix timestamp at which the log entry was made.
++ Bytes received - the number of bytes which were received in the packet that caused the log entry to be made.

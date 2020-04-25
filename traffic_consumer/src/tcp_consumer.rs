@@ -1,14 +1,17 @@
 use std::io::Read;
 use std::net::{Shutdown, TcpListener};
+use crate::logger::Logger;
 
-pub struct TcpConsumer;
+pub struct TcpConsumer {
+    logger: Logger,
+}
 
 impl TcpConsumer {
-    pub fn new() -> Self {
-        Self
+    pub fn new(logger: Logger) -> Self {
+        Self { logger }
     }
 
-    pub fn consume(&self) -> () {
+    pub fn consume(&mut self) -> () {
         let listener = TcpListener::bind("0.0.0.0:6860").expect("Cannot create TCP listener");
 
         let (mut socket, from_addr) = listener.accept().expect("Cannot establish connection");
@@ -25,6 +28,7 @@ impl TcpConsumer {
                 break;
             } else {
                 println!("Received {} bytes", bytes_received);
+                self.logger.log(&bytes_received.to_string());
             }
         }
     }

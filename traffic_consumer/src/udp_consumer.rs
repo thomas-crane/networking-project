@@ -1,13 +1,16 @@
+use crate::logger::Logger;
 use std::net::UdpSocket;
 
-pub struct UdpConsumer;
+pub struct UdpConsumer {
+    logger: Logger,
+}
 
 impl UdpConsumer {
-    pub fn new() -> Self {
-        Self
+    pub fn new(logger: Logger) -> Self {
+        Self { logger }
     }
 
-    pub fn consume(&self) -> ! {
+    pub fn consume(&mut self) -> ! {
         let socket = UdpSocket::bind("0.0.0.0:6860").expect("Cannot create UDP socket");
         let mut buf = [0u8; 10_000];
         loop {
@@ -19,6 +22,7 @@ impl UdpConsumer {
                 bytes_received,
                 from_addr.to_string()
             );
+            self.logger.log(&bytes_received.to_string());
         }
     }
 }
