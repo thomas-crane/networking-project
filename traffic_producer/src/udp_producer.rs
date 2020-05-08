@@ -1,5 +1,5 @@
 use crate::payload::create_payload;
-use crate::producer::{Producer, ProducerOptions};
+use crate::producer::{Producer, ProducerRun};
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::thread;
 use std::time::Duration;
@@ -8,8 +8,8 @@ pub struct UdpProducer {
     destination: SocketAddr,
 }
 
-impl Producer for UdpProducer {
-    fn new<T: ToSocketAddrs>(destination: T) -> Self {
+impl UdpProducer {
+    pub fn new<T: ToSocketAddrs>(destination: T) -> Self {
         let addr = destination
             .to_socket_addrs()
             .ok()
@@ -18,17 +18,34 @@ impl Producer for UdpProducer {
 
         Self { destination: addr }
     }
+}
 
-    fn run(&self, opts: &ProducerOptions) {
+impl Producer for UdpProducer {
+    fn name(&self) -> String {
+        "udp".to_string()
+    }
+
+    fn run(&self, runner: &mut ProducerRun) {
+        // log an initial snapshot.
+        let snapshot = runner.snapshot().to_string();
+        runner.logger.log(&format!("0,0,{}", snapshot));
+
         // since we are just sending stuff it doesn't really matter what we bind to.
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Cannot create UDP socket");
-        let delay_ms: u64 = (1000 / opts.rate).into();
-        let payload = create_payload(opts.payload_size as usize);
-        for i in 0..opts.count {
+        let delay_ms: u64 = (1000 / runner.opts.rate).into();
+        let payload = create_payload(runner.opts.payload_size as usize);
+        let mut sent_sum = 0;
+        for i in 0..runner.opts.count {
             socket
                 .send_to(&payload, self.destination)
                 .expect("Cannot send data");
-            println!("Sent packet {} of {}", i + 1, opts.count);
+            sent_sum += runner.opts.payload_size;
+            println!("Sent packet {} of {}", i + 1, runner.opts.count);
+            // log the total packets sent, total bytes sent, and the current snapshot.
+            let snapshot = runner.snapshot().to_string();
+            runner
+                .logger
+                .log(&format!("{},{},{}", i + 1, sent_sum, snapshot));
             thread::sleep(Duration::from_millis(delay_ms));
         }
     }

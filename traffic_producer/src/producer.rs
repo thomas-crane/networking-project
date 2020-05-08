@@ -1,5 +1,7 @@
+use common::{logger::Logger, time::unix_time};
 use std::fmt;
-use std::net::ToSocketAddrs;
+use throughput_recorder::snapshot::Snapshot;
+use throughput_recorder::snapshot_taker::SnapshotTaker;
 
 pub struct ProducerOptions {
     /// The number of packets to produce.
@@ -18,6 +20,9 @@ impl ProducerOptions {
             payload_size,
         }
     }
+    pub fn as_filename(&self) -> String {
+        format!("{}-{}-{}", self.count, self.rate, self.payload_size)
+    }
 }
 
 impl fmt::Display for ProducerOptions {
@@ -27,6 +32,38 @@ impl fmt::Display for ProducerOptions {
 }
 
 pub trait Producer {
-    fn new<T: ToSocketAddrs>(destination: T) -> Self;
-    fn run(&self, options: &ProducerOptions) -> ();
+    fn name(&self) -> String;
+    fn run(&self, runner: &mut ProducerRun) -> ();
+}
+
+pub struct ProducerRun {
+    pub opts: ProducerOptions,
+    pub logger: Logger,
+    pub snapshot_taker: SnapshotTaker,
+}
+
+impl ProducerRun {
+    pub fn new(opts: ProducerOptions, producer_name: String) -> Self {
+        let snapshot_taker = SnapshotTaker::new();
+        let logger = Logger::new(format!(
+            "{}-{}-{}.txt",
+            unix_time(),
+            producer_name,
+            opts.as_filename(),
+        ));
+        Self {
+            opts,
+            logger,
+            snapshot_taker,
+        }
+    }
+
+    pub fn run(&mut self, producer: Box<dyn Producer>) -> () {
+        producer.run(self);
+    }
+
+    pub fn snapshot(&self) -> Snapshot {
+        let snap = self.snapshot_taker.take_snapshot();
+        snap.into_iter().nth(0).expect("Cannot get snapshot")
+    }
 }
