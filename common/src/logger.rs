@@ -1,7 +1,7 @@
 use std::fs::{File, OpenOptions};
 use std::path::Path;
 use std::io::Write;
-use std::time::{SystemTime, UNIX_EPOCH};
+use crate::time::unix_time;
 
 pub struct Logger {
     file: File,
@@ -22,16 +22,7 @@ impl Logger {
     /// Appends both the current unix timestamp and the string to the file in CSV format, then adds
     /// a newline.
     pub fn log(&mut self, string: &String) {
-        let log_time = self.time();
+        let log_time = unix_time();
         write!(&mut self.file, "{},{}\n", log_time, string).expect("Cannot write to log file");
-    }
-
-    /// Gets the current unix time in seconds.
-    fn time(&self) -> String {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("Current time is earlier than epoch time")
-            .as_secs()
-            .to_string()
     }
 }
