@@ -1,0 +1,9 @@
+[workspace]
+
+members = [
+  "throughput_recorder",
+  "proxy_server",
+  "traffic_producer",
+  "traffic_consumer",
+  "common",
+]
