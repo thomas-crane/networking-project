@@ -48,5 +48,9 @@ impl Producer for UdpProducer {
                 .log(&format!("{},{},{}", i + 1, sent_sum, snapshot));
             thread::sleep(Duration::from_millis(delay_ms));
         }
+        // send a "closing" packet.
+        socket
+            .send_to(&[], self.destination)
+            .expect("Cannot close socket");
     }
 }
