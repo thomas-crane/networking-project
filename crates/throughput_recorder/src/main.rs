@@ -1,12 +1,8 @@
 use std::thread;
 use std::time::Duration;
 
-mod snapshot;
-mod snapshot_logger;
-mod snapshot_taker;
-
-use crate::snapshot_logger::SnapshotLogger;
-use crate::snapshot_taker::SnapshotTaker;
+use throughput_recorder::snapshot_logger::SnapshotLogger;
+use throughput_recorder::snapshot_taker::SnapshotTaker;
 
 fn main() {
     let mut args = std::env::args().skip(1);

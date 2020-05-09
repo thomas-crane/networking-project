@@ -20,7 +20,6 @@ version = "0.1.0"
 name = "traffic_producer"
 version = "0.1.0"
 dependencies = [
- "common 0.1.0",
- "throughput_recorder 0.1.0",
+ "common",
+ "throughput_recorder",
 ]
-

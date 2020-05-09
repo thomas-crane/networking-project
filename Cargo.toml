@@ -1,9 +1,9 @@
 [workspace]
 
 members = [
-  "throughput_recorder",
-  "proxy_server",
-  "traffic_producer",
-  "traffic_consumer",
-  "common",
+  "crates/throughput_recorder",
+  "crates/proxy_server",
+  "crates/traffic_producer",
+  "crates/traffic_consumer",
+  "crates/common",
 ]
