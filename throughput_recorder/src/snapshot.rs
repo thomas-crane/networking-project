@@ -27,11 +27,7 @@ impl Snapshot {
 
 impl fmt::Display for Snapshot {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{},{},{},{}",
-            self.snapshot_time, self.if_name, self.rx_bytes, self.tx_bytes
-        )
+        write!(f, "{},{},{}", self.if_name, self.rx_bytes, self.tx_bytes)
     }
 }
 
