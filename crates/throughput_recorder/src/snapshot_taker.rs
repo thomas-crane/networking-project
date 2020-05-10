@@ -25,4 +25,10 @@ impl SnapshotTaker {
             .map(|line| line.into())
             .collect::<Vec<Snapshot>>()
     }
+
+    pub fn snapshot_of(&self, if_name: &String) -> Option<Snapshot> {
+        self.take_snapshot()
+            .into_iter()
+            .find(|s| &s.if_name == if_name)
+    }
 }
