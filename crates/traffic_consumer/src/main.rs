@@ -10,7 +10,7 @@ fn main() {
 
     let mode = args.next().expect("Usage: consumer MODE");
 
-    let logger = Logger::new(&format!("{}.txt", unix_time()));
+    let logger = Logger::new(&format!("{}-{}.txt", unix_time(), mode));
     match mode.as_str() {
         "tcp" => {
             let mut consumer = TcpConsumer::new(logger);
