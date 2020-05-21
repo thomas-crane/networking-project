@@ -46,9 +46,7 @@ impl UdpConsumer {
 
     fn snapshot(&self) -> Snapshot {
         self.snapshot_taker
-            .take_snapshot()
-            .into_iter()
-            .nth(0)
+            .snapshot_of(&"eth0".to_string())
             .expect("Cannot get snapshot")
     }
 }
