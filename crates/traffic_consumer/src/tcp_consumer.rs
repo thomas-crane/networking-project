@@ -21,9 +21,10 @@ impl TcpConsumer {
     pub fn consume(&mut self) -> () {
         let listener = TcpListener::bind("0.0.0.0:6860").expect("Cannot create TCP listener");
         let mut recv_sum = 0;
+        let mut packet_count = 0;
         // log initial snapshot.
         self.logger
-            .log(&format!("{},{}", recv_sum, self.snapshot().to_string()));
+            .log(&format!("0,{},{}", recv_sum, self.snapshot().to_string()));
 
         let (mut socket, from_addr) = listener.accept().expect("Cannot establish connection");
         println!("Received connection from {}", from_addr.to_string());
@@ -40,8 +41,9 @@ impl TcpConsumer {
             } else {
                 println!("Received {} bytes", bytes_received);
                 recv_sum += bytes_received;
+                packet_count += 1;
                 self.logger
-                    .log(&format!("{},{}", recv_sum, self.snapshot().to_string()));
+                    .log(&format!("{},{},{}", packet_count, recv_sum, self.snapshot().to_string()));
             }
         }
     }
