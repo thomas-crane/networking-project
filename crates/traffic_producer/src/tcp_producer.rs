@@ -37,6 +37,7 @@ impl Producer for TcpProducer {
         let mut payload = create_payload(runner.opts.payload_size as usize);
         for i in 0..runner.opts.count {
             socket.write_all(&mut payload).expect("Cannot send data");
+            socket.flush().expect("Cannot flush stream");
             sent_sum += runner.opts.payload_size;
             println!("Sent packet {} of {}", i + 1, runner.opts.count);
             // log the total packets sent, total bytes sent, and the current snapshot.
