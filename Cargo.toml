@@ -2,7 +2,6 @@
 
 members = [
   "crates/throughput_recorder",
-  "crates/proxy_server",
   "crates/traffic_producer",
   "crates/traffic_consumer",
   "crates/common",
