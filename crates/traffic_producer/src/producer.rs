@@ -64,7 +64,7 @@ impl ProducerRun {
 
     pub fn snapshot(&self) -> Snapshot {
         self.snapshot_taker
-            .snapshot_of(&"etho0".to_string())
+            .snapshot_of(&"eth0".to_string())
             .expect("Cannot get snapshot")
     }
 }
