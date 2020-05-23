@@ -22,29 +22,27 @@ impl TcpProducer {
 }
 
 impl Producer for TcpProducer {
-    fn name(&self) -> String {
-        "tcp".to_string()
-    }
-
     fn run(&self, runner: &mut ProducerRun) {
         // log an initial snapshot.
         let snapshot = runner.snapshot().to_string();
-        runner.logger.log(&format!("0,0,{}", snapshot));
+        runner.logger.log(format!("0,0,{}", snapshot));
 
         let mut socket = TcpStream::connect(self.destination).expect("Cannot create TCP socket");
         let delay_ms: u64 = (1000 / runner.opts.rate).into();
         let mut sent_sum = 0;
         let mut payload = create_payload(runner.opts.payload_size as usize);
         for i in 0..runner.opts.count {
+            runner
+                .logger
+                .log_msg(format!("Sending packet {} of {}", i + 1, runner.opts.count));
             socket.write_all(&mut payload).expect("Cannot send data");
             socket.flush().expect("Cannot flush stream");
             sent_sum += runner.opts.payload_size;
-            println!("Sent packet {} of {}", i + 1, runner.opts.count);
             // log the total packets sent, total bytes sent, and the current snapshot.
             let snapshot = runner.snapshot().to_string();
             runner
                 .logger
-                .log(&format!("{},{},{}", i + 1, sent_sum, snapshot));
+                .log(format!("{},{},{}", i + 1, sent_sum, snapshot));
             thread::sleep(Duration::from_millis(delay_ms));
         }
     }

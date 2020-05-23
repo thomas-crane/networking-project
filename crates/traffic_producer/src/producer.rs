@@ -1,4 +1,4 @@
-use common::{logger::Logger, time::unix_time};
+use common::logger::Logger;
 use std::fmt;
 use throughput_recorder::snapshot::Snapshot;
 use throughput_recorder::snapshot_taker::SnapshotTaker;
@@ -20,19 +20,15 @@ impl ProducerOptions {
             payload_size,
         }
     }
-    pub fn as_filename(&self) -> String {
-        format!("{}-{}-{}", self.count, self.rate, self.payload_size)
-    }
 }
 
 impl fmt::Display for ProducerOptions {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{},{},{}", self.count, self.rate, self.payload_size)
     }
 }
 
 pub trait Producer {
-    fn name(&self) -> String;
     fn run(&self, runner: &mut ProducerRun) -> ();
 }
 
@@ -43,14 +39,9 @@ pub struct ProducerRun {
 }
 
 impl ProducerRun {
-    pub fn new(opts: ProducerOptions, producer_name: String) -> Self {
+    pub fn new(opts: ProducerOptions) -> Self {
         let snapshot_taker = SnapshotTaker::new();
-        let logger = Logger::new(format!(
-            "{}-{}-{}.txt",
-            unix_time(),
-            producer_name,
-            opts.as_filename(),
-        ));
+        let logger = Logger::new();
         Self {
             opts,
             logger,

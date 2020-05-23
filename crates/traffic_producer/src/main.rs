@@ -3,7 +3,7 @@ mod producer;
 mod tcp_producer;
 mod udp_producer;
 
-use crate::producer::{Producer, ProducerRun, ProducerOptions};
+use crate::producer::{Producer, ProducerOptions, ProducerRun};
 use crate::tcp_producer::TcpProducer;
 use crate::udp_producer::UdpProducer;
 use std::env;
@@ -27,8 +27,8 @@ fn main() {
         .and_then(|c| c.parse::<u32>().ok())
         .expect("Usage: producer MODE COUNT RATE PAYLOAD_SIZE");
 
-    let proxy_ip = env::var("PROXY_IP").expect("No proxy IP");
-    let addrs = format!("{}:6850", proxy_ip);
+    let proxy_ip = env::var("CONSUMER_IP").expect("No consumer IP");
+    let addrs = format!("{}:6860", proxy_ip);
 
     let opts = ProducerOptions::new(count, rate, payload_size);
 
@@ -38,6 +38,6 @@ fn main() {
         _ => panic!("Unsupported producer type"),
     };
 
-    let mut runner = ProducerRun::new(opts, producer.name());
+    let mut runner = ProducerRun::new(opts);
     runner.run(producer);
 }

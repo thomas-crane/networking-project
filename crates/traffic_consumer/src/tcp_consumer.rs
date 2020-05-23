@@ -27,23 +27,32 @@ impl TcpConsumer {
             .log(&format!("0,{},{}", recv_sum, self.snapshot().to_string()));
 
         let (mut socket, from_addr) = listener.accept().expect("Cannot establish connection");
-        println!("Received connection from {}", from_addr.to_string());
+        self.logger.log_msg(format!(
+            "Received connection from {}",
+            from_addr.to_string()
+        ));
 
         let mut buf = [0u8; 10_000];
         loop {
             let bytes_received = socket.read(&mut buf).expect("Cannot read from socket");
             if bytes_received == 0 {
-                println!("Received 0 bytes. Shutting down socket.");
+                self.logger
+                    .log_msg("Received 0 bytes. Shutting down socket.");
                 socket
                     .shutdown(Shutdown::Both)
                     .expect("Cannot shutdown socket");
                 break;
             } else {
-                println!("Received {} bytes", bytes_received);
+                self.logger
+                    .log_msg(format!("Received {} bytes", bytes_received));
                 recv_sum += bytes_received;
                 packet_count += 1;
-                self.logger
-                    .log(&format!("{},{},{}", packet_count, recv_sum, self.snapshot().to_string()));
+                self.logger.log(&format!(
+                    "{},{},{}",
+                    packet_count,
+                    recv_sum,
+                    self.snapshot().to_string()
+                ));
             }
         }
     }

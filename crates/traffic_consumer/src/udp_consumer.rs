@@ -24,24 +24,29 @@ impl UdpConsumer {
         let mut packet_count = 0;
         // log initial snapshot.
         self.logger
-            .log(&format!("0,{},{}", recv_sum, self.snapshot().to_string()));
+            .log(format!("0,{},{}", recv_sum, self.snapshot().to_string()));
 
         loop {
             let (bytes_received, from_addr) =
                 socket.recv_from(&mut buf).expect("Cannot read from socket");
             if bytes_received == 0 {
-                println!("Received 0 bytes. Shutting down socket.");
+                self.logger
+                    .log_msg(format!("Received 0 bytes. Shutting down socket."));
                 break;
             } else {
-                println!(
+                self.logger.log_msg(format!(
                     "Received {} bytes from {}",
                     bytes_received,
                     from_addr.to_string()
-                );
+                ));
                 recv_sum += bytes_received;
                 packet_count += 1;
-                self.logger
-                    .log(&format!("{},{},{}", packet_count, recv_sum, self.snapshot().to_string()));
+                self.logger.log(format!(
+                    "{},{},{}",
+                    packet_count,
+                    recv_sum,
+                    self.snapshot().to_string()
+                ));
             }
         }
     }
