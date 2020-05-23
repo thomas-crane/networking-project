@@ -1,5 +1,4 @@
 containers=(
-  proxy
   producer
   consumer
 )

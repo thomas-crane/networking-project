@@ -12,11 +12,13 @@ fi
 # set the IPs.
 source `realpath ./set-ips.sh`
 
-# start the proxy and the consumer.
-docker exec -e PRODUCER_IP -e CONSUMER_IP -d proxy proxy_server $1
-docker exec -d consumer traffic_consumer $1
-# allow them to start for a second.
+# start the consumer (in the background).
+docker exec consumer traffic_consumer $1 > consumer.txt &
+# allow it to start for a second.
 sleep 1
 
-# start the producer, don't exec in detached mode (-d) because we need to wait for it to finish.
-docker exec -e PROXY_IP producer traffic_producer $1 $2 $3 $4
+# start the producer.
+docker exec -e CONSUMER_IP producer traffic_producer $1 $2 $3 $4 > producer.txt
+
+# wait for the consumer to shut down before exiting.
+wait
