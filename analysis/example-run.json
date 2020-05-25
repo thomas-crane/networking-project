@@ -1,0 +1,30 @@
+{
+  "independent": "Packet loss",
+  "data": [
+    {
+      "value": "0% random",
+      "producer": "/home/tom/code/uni/networking-project/tools/0-prod.txt",
+      "consumer": "/home/tom/code/uni/networking-project/tools/0-cons.txt"
+    },
+    {
+      "value": "5% random",
+      "producer": "/home/tom/code/uni/networking-project/tools/1-prod.txt",
+      "consumer": "/home/tom/code/uni/networking-project/tools/1-cons.txt"
+    },
+    {
+      "value": "15% random",
+      "producer": "/home/tom/code/uni/networking-project/tools/2-prod.txt",
+      "consumer": "/home/tom/code/uni/networking-project/tools/2-cons.txt"
+    },
+    {
+      "value": "25% random",
+      "producer": "/home/tom/code/uni/networking-project/tools/3-prod.txt",
+      "consumer": "/home/tom/code/uni/networking-project/tools/3-cons.txt"
+    },
+    {
+      "value": "UDP 25% random",
+      "producer": "/home/tom/code/uni/networking-project/tools/4-prod.txt",
+      "consumer": "/home/tom/code/uni/networking-project/tools/4-cons.txt"
+    }
+  ]
+}
