@@ -19,7 +19,7 @@ impl UdpConsumer {
 
     pub fn consume(&mut self) -> () {
         let socket = UdpSocket::bind("0.0.0.0:6860").expect("Cannot create UDP socket");
-        let mut buf = [0u8; 10_000];
+        let mut buf = [0u8; std::u16::MAX as usize];
         let mut recv_sum = 0;
         let mut packet_count = 0;
         // log initial snapshot.

@@ -32,7 +32,7 @@ impl TcpConsumer {
             from_addr.to_string()
         ));
 
-        let mut buf = [0u8; 10_000];
+        let mut buf = [0u8; std::u16::MAX as usize];
         loop {
             let bytes_received = socket.read(&mut buf).expect("Cannot read from socket");
             if bytes_received == 0 {
