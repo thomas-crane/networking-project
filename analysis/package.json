@@ -12,7 +12,5 @@
     "tslint": "^6.1.2",
     "typescript": "^3.9.3"
   },
-  "dependencies": {
-    "nodeplotlib": "^0.6.5"
-  }
+  "dependencies": {}
 }

@@ -1,7 +1,6 @@
 import { join } from 'path';
 import { cwd } from 'process';
 import { Run } from './run';
-import { plot, Plot } from 'nodeplotlib';
 
 interface TestRun {
   /**
@@ -40,7 +39,3 @@ const [xs, losses, overheads] = runFile.data
     return [i, 1 - run.payloadLoss(), run.overhead()];
   })
   .reduce(([xs, ls, os], [x, l, o]) => [[...xs, x], [...ls, l], [...os, o]], [[], [], []] as [number[], number[], number[]]);
-const lossData: Plot = { type: 'line' as any, x: [...xs], y: losses };
-const overheadData: Plot = { type: 'line' as any, x: [...xs], y: overheads };
-
-plot([lossData, overheadData]);
