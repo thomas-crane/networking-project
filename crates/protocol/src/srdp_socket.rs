@@ -92,7 +92,6 @@ impl SrdpSocket {
                     // the same packet due to packet loss and latency, so we can just ignore it if
                     // that's the case.
                     if let Some(packet) = unacked_packets.remove(&id) {
-                        println!("Received ACK for {}", id);
                         // remove the acked packet and make the ID available again.
                         available_ids.lock().unwrap().push_back(id);
 
@@ -106,10 +105,6 @@ impl SrdpSocket {
                 }
                 // check if we need to send an ack.
                 if (flags & IMPORTANT_FLAG) == IMPORTANT_FLAG {
-                    println!(
-                        "Received important packet {}, sending ACK",
-                        buf[0] & ID_MASK
-                    );
                     // create an ack.
                     let ack = [ACK_FLAG | (buf[0] & ID_MASK)];
                     write_socket.lock().unwrap().send_to(&ack, addr).unwrap();
@@ -146,8 +141,6 @@ impl SrdpSocket {
                 for (_, packet) in unacked_packets.iter_mut() {
                     // check if the average RTT has elapsed.
                     if now.duration_since(packet.last_sent).as_millis() >= avg_rtt {
-                        println!("Sending {} again.", packet.id);
-                        println!("Average RTT: {}", avg_rtt);
                         // send again.
                         let bytes = packet.as_bytes();
                         write_socket
