@@ -87,14 +87,16 @@ impl SrdpSocket {
                 // check if it was an ack.
                 if (flags & ACK_FLAG) == ACK_FLAG {
                     let id = buf[0] & ID_MASK;
-                    let mut unacked_packets = unacked_packets.lock().unwrap();
                     // check if the ACK corresponds to a packet. We might receive a second ACK for
                     // the same packet due to packet loss and latency, so we can just ignore it if
                     // that's the case.
-                    if let Some(packet) = unacked_packets.remove(&id) {
+                    let packet = {
+                        let mut unacked_packets = unacked_packets.lock().unwrap();
+                        unacked_packets.remove(&id)
+                    };
+                    if let Some(packet) = packet {
                         // remove the acked packet and make the ID available again.
                         available_ids.lock().unwrap().push_back(id);
-
                         // add the RTT to the send times.
                         let rtt = Instant::now().duration_since(packet.first_sent);
                         let mut send_times = send_times.lock().unwrap();
@@ -130,6 +132,10 @@ impl SrdpSocket {
                 // wait a bit.
                 thread::sleep(Duration::from_millis(10));
                 let mut unacked_packets = unacked_packets.lock().unwrap();
+                // if there are no unacked packets there is nothing to resend.
+                if unacked_packets.is_empty() {
+                    continue;
+                }
                 let now = Instant::now();
                 let avg_rtt = {
                     let send_times = send_times.lock().unwrap();
