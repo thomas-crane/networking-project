@@ -5,6 +5,10 @@ name = "common"
 version = "0.1.0"
 
 [[package]]
+name = "protocol"
+version = "0.1.0"
+
+[[package]]
 name = "throughput_recorder"
 version = "0.1.0"
 

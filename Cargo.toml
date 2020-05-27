@@ -5,4 +5,5 @@ members = [
   "crates/traffic_producer",
   "crates/traffic_consumer",
   "crates/common",
+  "crates/protocol",
 ]
