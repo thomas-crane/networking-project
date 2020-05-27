@@ -75,6 +75,7 @@ impl SrdpSocket {
             let (available_ids, unacked_packets, send_times) = thread_collections;
             let (sender,) = thread_sender;
             let mut buf = [0u8; std::u16::MAX as usize];
+            let mut last_recvd_ids = VecDeque::<u8>::with_capacity(16);
             loop {
                 let (recv, addr) = read_socket.recv_from(&mut buf).unwrap();
                 // close socket.
@@ -107,9 +108,24 @@ impl SrdpSocket {
                 }
                 // check if we need to send an ack.
                 if (flags & IMPORTANT_FLAG) == IMPORTANT_FLAG {
-                    // create an ack.
-                    let ack = [ACK_FLAG | (buf[0] & ID_MASK)];
-                    write_socket.lock().unwrap().send_to(&ack, addr).unwrap();
+                    let id = buf[0] & ID_MASK;
+                    // check if this packet was recently received. If it was, the most likely case
+                    // is that the packet was transmitted twice before it could be ACKed. Since
+                    // emitting the packet again would cause duplication, we can just drop the
+                    // packet.
+                    if last_recvd_ids.contains(&id) {
+                        continue;
+                    } else {
+                        // if the queue is at its capacity, remove an item first.
+                        if last_recvd_ids.len() == last_recvd_ids.capacity() {
+                            last_recvd_ids.pop_front();
+                        }
+                        // add this id to the last received ids.
+                        last_recvd_ids.push_back(id);
+                        // create an ack.
+                        let ack = [ACK_FLAG | id];
+                        write_socket.lock().unwrap().send_to(&ack, addr).unwrap();
+                    }
                 }
 
                 // dispatch the result.
