@@ -24,6 +24,7 @@ pub struct SrdpSocket {
     // shared collections
     shared_available_ids: Shared<VecDeque<u8>>,
     shared_unacked_packets: Shared<HashMap<u8, UnackedPacket>>,
+    shared_send_times: Shared<VecDeque<u128>>,
 
     // channels,
     packet_rx: mpsc::Receiver<(Vec<u8>, SocketAddr)>,
@@ -41,10 +42,15 @@ impl SrdpSocket {
         // set up shared collections.
         let mut available_ids = VecDeque::with_capacity(64);
         for i in 0..64u8 {
-            available_ids.push_front(i);
+            available_ids.push_back(i);
         }
         let shared_available_ids = Arc::new(Mutex::new(available_ids));
         let shared_unacked_packets = Arc::new(Mutex::new(HashMap::<u8, UnackedPacket>::new()));
+        let mut send_times = VecDeque::with_capacity(10);
+        for _ in 0..send_times.capacity() {
+            send_times.push_back(100);
+        }
+        let shared_send_times = Arc::new(Mutex::new(send_times));
 
         // set up the packet sender/receiver.
         let (packet_tx, packet_rx) = mpsc::channel();
@@ -58,11 +64,15 @@ impl SrdpSocket {
         // 4. If the packet was important, send an ACK for that packet.
         // 5. Send the packet to the socket mpsc.
         let thread_sockets = (read_socket.try_clone()?, shared_socket.clone());
-        let thread_collections = (shared_available_ids.clone(), shared_unacked_packets.clone());
+        let thread_collections = (
+            shared_available_ids.clone(),
+            shared_unacked_packets.clone(),
+            shared_send_times.clone(),
+        );
         let thread_sender = (packet_tx.clone(),);
         thread::spawn(move || {
             let (read_socket, write_socket) = thread_sockets;
-            let (available_ids, unacked_packets) = thread_collections;
+            let (available_ids, unacked_packets, send_times) = thread_collections;
             let (sender,) = thread_sender;
             let mut buf = [0u8; std::u16::MAX as usize];
             loop {
@@ -78,22 +88,28 @@ impl SrdpSocket {
                 if (flags & ACK_FLAG) == ACK_FLAG {
                     let id = buf[0] & ID_MASK;
                     let mut unacked_packets = unacked_packets.lock().unwrap();
-                    // find the packet which was ACKed.
-                    match unacked_packets.remove(&id) {
-                        Some(_) => {
-                            println!("Received ACK for {}", id);
-                            // remove the acked packet and make the ID available again.
-                            available_ids.lock().unwrap().push_back(id);
-                        }
-                        None => {
-                            panic!("Tried to ACK packet that was already ACKed");
-                        }
+                    // check if the ACK corresponds to a packet. We might receive a second ACK for
+                    // the same packet due to packet loss and latency, so we can just ignore it if
+                    // that's the case.
+                    if let Some(packet) = unacked_packets.remove(&id) {
+                        println!("Received ACK for {}", id);
+                        // remove the acked packet and make the ID available again.
+                        available_ids.lock().unwrap().push_back(id);
+
+                        // add the RTT to the send times.
+                        let rtt = Instant::now().duration_since(packet.first_sent);
+                        let mut send_times = send_times.lock().unwrap();
+                        send_times.pop_front();
+                        send_times.push_back(rtt.as_millis());
                     }
                     continue;
                 }
                 // check if we need to send an ack.
                 if (flags & IMPORTANT_FLAG) == IMPORTANT_FLAG {
-                    println!("Received important packet {}, sending ACK", buf[0] & ID_MASK);
+                    println!(
+                        "Received important packet {}, sending ACK",
+                        buf[0] & ID_MASK
+                    );
                     // create an ack.
                     let ack = [ACK_FLAG | (buf[0] & ID_MASK)];
                     write_socket.lock().unwrap().send_to(&ack, addr).unwrap();
@@ -110,20 +126,28 @@ impl SrdpSocket {
         // 2. Check if the time since a packet was sent is past some threshold.
         // 3. If it is, send it again and update the time at which it was sent.
         let thread_sockets = (shared_socket.clone(),);
-        let thread_collections = (shared_unacked_packets.clone(),);
+        let thread_collections = (shared_unacked_packets.clone(), shared_send_times.clone());
         thread::spawn(move || {
             let (write_socket,) = thread_sockets;
-            let (unacked_packets,) = thread_collections;
+            let (unacked_packets, send_times) = thread_collections;
 
             loop {
                 // wait a bit.
                 thread::sleep(Duration::from_millis(10));
                 let mut unacked_packets = unacked_packets.lock().unwrap();
                 let now = Instant::now();
+                let avg_rtt = {
+                    let send_times = send_times.lock().unwrap();
+                    let rtt =
+                        send_times.iter().fold(0, |acc, x| acc + x) / send_times.len() as u128;
+                    // don't go lower than 10ms.
+                    std::cmp::max(10, rtt)
+                };
                 for (_, packet) in unacked_packets.iter_mut() {
-                    // check if 200ms has elapsed.
-                    if now.duration_since(packet.last_sent).as_millis() > 200 {
+                    // check if the average RTT has elapsed.
+                    if now.duration_since(packet.last_sent).as_millis() >= avg_rtt {
                         println!("Sending {} again.", packet.id);
+                        println!("Average RTT: {}", avg_rtt);
                         // send again.
                         let bytes = packet.as_bytes();
                         write_socket
@@ -143,6 +167,7 @@ impl SrdpSocket {
 
             shared_available_ids,
             shared_unacked_packets,
+            shared_send_times,
 
             packet_tx,
             packet_rx,
@@ -193,6 +218,7 @@ struct UnackedPacket {
     data: Box<[u8]>,
     addr: SocketAddr,
     last_sent: Instant,
+    first_sent: Instant,
 }
 
 impl UnackedPacket {
@@ -202,6 +228,7 @@ impl UnackedPacket {
             data,
             addr,
             last_sent: Instant::now(),
+            first_sent: Instant::now(),
         }
     }
     pub fn as_bytes(&self) -> Vec<u8> {
