@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::io::Result;
 use std::io::{Error, ErrorKind};
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
@@ -14,6 +14,7 @@ const FLAG_MASK: u8 = 0b11000000;
 const ID_MASK: u8 = 0b00111111;
 const IMPORTANT_FLAG: u8 = 0b10000000;
 const ACK_FLAG: u8 = 0b01000000;
+const EXPECT_FLAG: u8 = 0b11000000;
 
 /// A socket which implements the "Semi Reliable Datagram Protocol".
 pub struct SrdpSocket {
@@ -22,13 +23,13 @@ pub struct SrdpSocket {
     shared_socket: Shared<UdpSocket>,
 
     // shared collections
-    shared_available_ids: Shared<VecDeque<u8>>,
-    shared_unacked_packets: Shared<HashMap<u8, UnackedPacket>>,
+    shared_unacked_packets: Shared<VecDeque<UnackedPacket>>,
     shared_send_times: Shared<VecDeque<u128>>,
 
     // channels,
     packet_rx: mpsc::Receiver<(Vec<u8>, SocketAddr)>,
     packet_tx: mpsc::Sender<(Vec<u8>, SocketAddr)>,
+    id_rx: mpsc::Receiver<u8>,
 }
 
 impl SrdpSocket {
@@ -40,20 +41,20 @@ impl SrdpSocket {
         let shared_socket = Arc::new(Mutex::new(read_socket.try_clone()?));
 
         // set up shared collections.
-        let mut available_ids = VecDeque::with_capacity(64);
-        for i in 0..64u8 {
-            available_ids.push_back(i);
-        }
-        let shared_available_ids = Arc::new(Mutex::new(available_ids));
-        let shared_unacked_packets = Arc::new(Mutex::new(HashMap::<u8, UnackedPacket>::new()));
+        let shared_unacked_packets = Arc::new(Mutex::new(VecDeque::<UnackedPacket>::new()));
         let mut send_times = VecDeque::with_capacity(10);
         for _ in 0..send_times.capacity() {
             send_times.push_back(100);
         }
         let shared_send_times = Arc::new(Mutex::new(send_times));
 
-        // set up the packet sender/receiver.
+        // set up the channels.
         let (packet_tx, packet_rx) = mpsc::channel();
+        let (id_tx, id_rx) = mpsc::channel();
+        // enqueue all available packet ids.
+        for i in 0..64u8 {
+            id_tx.send(i).unwrap();
+        }
 
         // reader thread
         // this thread has to:
@@ -64,18 +65,14 @@ impl SrdpSocket {
         // 4. If the packet was important, send an ACK for that packet.
         // 5. Send the packet to the socket mpsc.
         let thread_sockets = (read_socket.try_clone()?, shared_socket.clone());
-        let thread_collections = (
-            shared_available_ids.clone(),
-            shared_unacked_packets.clone(),
-            shared_send_times.clone(),
-        );
-        let thread_sender = (packet_tx.clone(),);
+        let thread_collections = (shared_unacked_packets.clone(), shared_send_times.clone());
+        let thread_sender = (packet_tx.clone(), id_tx.clone());
         thread::spawn(move || {
+            let mut seq_number = 0;
             let (read_socket, write_socket) = thread_sockets;
-            let (available_ids, unacked_packets, send_times) = thread_collections;
-            let (sender,) = thread_sender;
+            let (unacked_packets, send_times) = thread_collections;
+            let (sender, id_queue) = thread_sender;
             let mut buf = [0u8; std::u16::MAX as usize];
-            let mut last_recvd_ids = VecDeque::<u8>::with_capacity(16);
             loop {
                 let (recv, addr) = read_socket.recv_from(&mut buf).unwrap();
                 // close socket.
@@ -85,50 +82,71 @@ impl SrdpSocket {
                 // check flags
                 let flags = buf[0] & FLAG_MASK;
 
+                // check if it was an expect.
+                if (flags & EXPECT_FLAG) == EXPECT_FLAG {
+                    let expected_id = buf[0] & ID_MASK;
+                    // any unacked packets up until but not including the expected one can be
+                    // removed.
+                    let mut unacked_packets = unacked_packets.lock().unwrap();
+                    loop {
+                        let next_unacked_id = unacked_packets.front().map(|p| p.id);
+                        match next_unacked_id {
+                            Some(id) if id < expected_id => {
+                                // remove this packet and make the ID available again.
+                                unacked_packets.pop_front().unwrap();
+                                id_queue.send(id).unwrap();
+                            }
+                            _ => break,
+                        }
+                    }
+                    continue;
+                }
+
                 // check if it was an ack.
                 if (flags & ACK_FLAG) == ACK_FLAG {
-                    let id = buf[0] & ID_MASK;
-                    // check if the ACK corresponds to a packet. We might receive a second ACK for
-                    // the same packet due to packet loss and latency, so we can just ignore it if
-                    // that's the case.
-                    let packet = {
-                        let mut unacked_packets = unacked_packets.lock().unwrap();
-                        unacked_packets.remove(&id)
-                    };
-                    if let Some(packet) = packet {
-                        // remove the acked packet and make the ID available again.
-                        available_ids.lock().unwrap().push_back(id);
-                        // add the RTT to the send times.
-                        let rtt = Instant::now().duration_since(packet.first_sent);
-                        let mut send_times = send_times.lock().unwrap();
-                        send_times.pop_front();
-                        send_times.push_back(rtt.as_millis());
+                    let acked_id = buf[0] & ID_MASK;
+                    // remove any unacked packets up until and including the ACKed packet.
+                    let mut unacked_packets = unacked_packets.lock().unwrap();
+                    loop {
+                        let next_unacked_id = unacked_packets.front().map(|p| p.id);
+                        match next_unacked_id {
+                            Some(id) if id <= acked_id => {
+                                // remove this packet and make the ID available again.
+                                let packet = unacked_packets.pop_front().unwrap();
+                                id_queue.send(id).unwrap();
+                                // when we remove the packet that was actually ACKed, also add its
+                                // RTT to the list.
+                                if packet.id == id {
+                                    let rtt = Instant::now().duration_since(packet.first_sent);
+                                    let mut send_times = send_times.lock().unwrap();
+                                    send_times.pop_front();
+                                    send_times.push_back(rtt.as_millis());
+                                }
+                            }
+                            _ => break,
+                        }
                     }
                     continue;
                 }
                 // check if we need to send an ack.
                 if (flags & IMPORTANT_FLAG) == IMPORTANT_FLAG {
                     let id = buf[0] & ID_MASK;
-                    // check if this packet was recently received. If it was, the most likely case
-                    // is that the packet was transmitted twice before it could be ACKed. Since
-                    // emitting the packet again would cause duplication, we can just drop the
-                    // packet.
-                    if last_recvd_ids.contains(&id) {
+                    // check if this packet was the next expected packet to be received. If it
+                    // wasn't, sent an expect.
+                    if id != seq_number {
+                        let expect = [EXPECT_FLAG | seq_number];
+                        write_socket.lock().unwrap().send_to(&expect, addr).unwrap();
                         continue;
                     } else {
-                        // if the queue is at its capacity, remove an item first.
-                        if last_recvd_ids.len() == last_recvd_ids.capacity() {
-                            last_recvd_ids.pop_front();
-                        }
-                        // add this id to the last received ids.
-                        last_recvd_ids.push_back(id);
-                        // create an ack.
+                        // add one to the seq_number and make sure to wrap.
+                        seq_number = (seq_number + 1) % 64;
+                        // acknowledge the packet.
                         let ack = [ACK_FLAG | id];
                         write_socket.lock().unwrap().send_to(&ack, addr).unwrap();
                     }
                 }
 
-                // dispatch the result.
+                // dispatch the result minus the header.
                 sender.send((buf[1..recv].to_vec(), addr)).unwrap();
             }
         });
@@ -160,7 +178,7 @@ impl SrdpSocket {
                     // don't go lower than 10ms.
                     std::cmp::max(10, rtt)
                 };
-                for (_, packet) in unacked_packets.iter_mut() {
+                for packet in unacked_packets.iter_mut() {
                     // check if the average RTT has elapsed.
                     if now.duration_since(packet.last_sent).as_millis() >= avg_rtt {
                         // send again.
@@ -180,12 +198,12 @@ impl SrdpSocket {
             read_socket,
             shared_socket,
 
-            shared_available_ids,
             shared_unacked_packets,
             shared_send_times,
 
             packet_tx,
             packet_rx,
+            id_rx,
         })
     }
 
@@ -198,23 +216,21 @@ impl SrdpSocket {
                 self.shared_socket.lock().unwrap().send_to(&message, addr)
             }
             Packet::Important(data) => {
-                match self.shared_available_ids.lock().unwrap().pop_front() {
-                    Some(id) => {
-                        // add the packet to the unacked list.
+                // wait to receive an ID.
+                match self.id_rx.recv() {
+                    Ok(id) => {
+                        // add the packet to the unacked queue.
                         let unacked = UnackedPacket::new(id, data, addr);
                         let bytes = unacked.as_bytes();
                         self.shared_unacked_packets
                             .lock()
                             .unwrap()
-                            .insert(id, unacked);
+                            .push_back(unacked);
 
                         // send the packet.
                         self.shared_socket.lock().unwrap().send_to(&bytes, addr)
                     }
-                    None => {
-                        // TODO
-                        panic!("Exhausted available IDs.")
-                    }
+                    Err(_) => panic!("Cannot receive an ID."),
                 }
             }
         }
