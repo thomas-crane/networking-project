@@ -35,7 +35,12 @@ impl Producer for SrdpProducer {
                 .logger
                 .log_msg(format!("Sending packet {} of {}", i + 1, runner.opts.count));
             let payload = create_payload(runner.opts.payload_size as usize);
-            let packet = Packet::Important(payload.into_boxed_slice());
+            // assume that every 20th packet is important.
+            let packet = if i % 20 == 0 {
+                Packet::Important(payload.into_boxed_slice())
+            } else {
+                Packet::Normal(payload.into_boxed_slice())
+            };
             socket
                 .send_to(packet, self.destination)
                 .expect("Cannot send data");
@@ -49,7 +54,7 @@ impl Producer for SrdpProducer {
         }
         // send a "closing" packet.
         socket
-            .send_to(Packet::Normal(Box::new([])), self.destination)
+            .send_to(Packet::Important(Box::new([])), self.destination)
             .expect("Cannot close socket");
     }
 }
