@@ -2,10 +2,12 @@ mod payload;
 mod producer;
 mod tcp_producer;
 mod udp_producer;
+mod srdp_producer;
 
 use crate::producer::{Producer, ProducerOptions, ProducerRun};
 use crate::tcp_producer::TcpProducer;
 use crate::udp_producer::UdpProducer;
+use crate::srdp_producer::SrdpProducer;
 use std::env;
 
 fn main() {
@@ -35,6 +37,7 @@ fn main() {
     let producer: Box<dyn Producer> = match mode.as_str() {
         "tcp" => Box::new(TcpProducer::new(&addrs)),
         "udp" => Box::new(UdpProducer::new(&addrs)),
+        "srdp" => Box::new(SrdpProducer::new(&addrs)),
         _ => panic!("Unsupported producer type"),
     };
 

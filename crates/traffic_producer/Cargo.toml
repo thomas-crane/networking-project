@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 throughput_recorder = { path = "../throughput_recorder" }
 common = { path = "../common" }
+protocol = { path = "../protocol" }
