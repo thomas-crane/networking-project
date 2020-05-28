@@ -1,8 +1,10 @@
 mod tcp_consumer;
 mod udp_consumer;
+mod srdp_consumer;
 
 use crate::tcp_consumer::TcpConsumer;
 use crate::udp_consumer::UdpConsumer;
+use crate::srdp_consumer::SrdpConsumer;
 use common::logger::Logger;
 
 fn main() {
@@ -18,6 +20,10 @@ fn main() {
         }
         "udp" => {
             let mut consumer = UdpConsumer::new(logger);
+            consumer.consume();
+        }
+        "srdp" => {
+            let mut consumer = SrdpConsumer::new(logger);
             consumer.consume();
         }
         _ => panic!("No consumer for mode {}", mode),
