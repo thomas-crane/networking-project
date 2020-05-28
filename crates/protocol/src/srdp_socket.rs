@@ -25,6 +25,7 @@ pub struct SrdpSocket {
     // shared collections
     shared_unacked_packets: Shared<VecDeque<UnackedPacket>>,
     shared_send_times: Shared<VecDeque<u128>>,
+    shared_ack_info: Shared<AckInfo>,
 
     // channels,
     packet_rx: mpsc::Receiver<(Vec<u8>, SocketAddr)>,
@@ -47,6 +48,7 @@ impl SrdpSocket {
             send_times.push_back(100);
         }
         let shared_send_times = Arc::new(Mutex::new(send_times));
+        let shared_ack_info = Arc::new(Mutex::new(AckInfo::new()));
 
         // set up the channels.
         let (packet_tx, packet_rx) = mpsc::channel();
@@ -65,12 +67,16 @@ impl SrdpSocket {
         // 4. If the packet was important, send an ACK for that packet.
         // 5. Send the packet to the socket mpsc.
         let thread_sockets = (read_socket.try_clone()?, shared_socket.clone());
-        let thread_collections = (shared_unacked_packets.clone(), shared_send_times.clone());
+        let thread_collections = (
+            shared_unacked_packets.clone(),
+            shared_send_times.clone(),
+            shared_ack_info.clone(),
+        );
         let thread_sender = (packet_tx.clone(), id_tx.clone());
         thread::spawn(move || {
             let mut seq_number = 0;
             let (read_socket, write_socket) = thread_sockets;
-            let (unacked_packets, send_times) = thread_collections;
+            let (unacked_packets, send_times, ack_info) = thread_collections;
             let (sender, id_queue) = thread_sender;
             let mut buf = [0u8; std::u16::MAX as usize];
             loop {
@@ -140,9 +146,24 @@ impl SrdpSocket {
                     } else {
                         // add one to the seq_number and make sure to wrap.
                         seq_number = (seq_number + 1) % 64;
+                        let mut ack_info = ack_info.lock().unwrap();
+                        if !ack_info.should_ack {
+                            // if we weren't going to ack anything, set the necessary fields.
+                            ack_info.should_ack = true;
+                            ack_info.time = Instant::now();
+                            ack_info.ack_number = id;
+                            // FIXME: packets can arrive from different addresses, but all the acks
+                            // will be sent to whatever address this is. Maybe use a hashmap of
+                            // addresses instead.
+                            ack_info.addr = Some(addr);
+                        } else {
+                            // otherwise, we received another packet before we had a chance to send
+                            // an ACK, so we can just update the ack number.
+                            ack_info.ack_number = id;
+                        }
                         // acknowledge the packet.
-                        let ack = [ACK_FLAG | id];
-                        write_socket.lock().unwrap().send_to(&ack, addr).unwrap();
+                        // let ack = [ACK_FLAG | id];
+                        // write_socket.lock().unwrap().send_to(&ack, addr).unwrap();
                     }
                 }
 
@@ -157,20 +178,18 @@ impl SrdpSocket {
         // 2. Check if the time since a packet was sent is past some threshold.
         // 3. If it is, send it again and update the time at which it was sent.
         let thread_sockets = (shared_socket.clone(),);
-        let thread_collections = (shared_unacked_packets.clone(), shared_send_times.clone());
+        let thread_collections = (
+            shared_unacked_packets.clone(),
+            shared_send_times.clone(),
+            shared_ack_info.clone(),
+        );
         thread::spawn(move || {
             let (write_socket,) = thread_sockets;
-            let (unacked_packets, send_times) = thread_collections;
+            let (unacked_packets, send_times, ack_info) = thread_collections;
 
             loop {
                 // wait a bit.
                 thread::sleep(Duration::from_millis(10));
-                let mut unacked_packets = unacked_packets.lock().unwrap();
-                // if there are no unacked packets there is nothing to resend.
-                if unacked_packets.is_empty() {
-                    continue;
-                }
-                let now = Instant::now();
                 let avg_rtt = {
                     let send_times = send_times.lock().unwrap();
                     let rtt =
@@ -178,9 +197,31 @@ impl SrdpSocket {
                     // don't go lower than 10ms.
                     std::cmp::max(10, rtt)
                 };
+                // check if we need to ack anything
+                let mut ack_info = ack_info.lock().unwrap();
+                if ack_info.should_ack
+                    && Instant::now().duration_since(ack_info.time).as_millis() > (avg_rtt / 3)
+                {
+                    // send the ack.
+                    let header = ack_info.as_header();
+                    write_socket
+                        .lock()
+                        .unwrap()
+                        .send_to(&header, ack_info.addr.unwrap())
+                        .unwrap();
+                    ack_info.should_ack = false;
+                }
+                // release the lock.
+                drop(ack_info);
+
+                let mut unacked_packets = unacked_packets.lock().unwrap();
+                // if there are no unacked packets there is nothing to resend.
+                if unacked_packets.is_empty() {
+                    continue;
+                }
                 for packet in unacked_packets.iter_mut() {
                     // check if the average RTT has elapsed.
-                    if now.duration_since(packet.last_sent).as_millis() >= avg_rtt {
+                    if Instant::now().duration_since(packet.last_sent).as_millis() >= avg_rtt {
                         // send again.
                         let bytes = packet.as_bytes();
                         write_socket
@@ -188,7 +229,7 @@ impl SrdpSocket {
                             .unwrap()
                             .send_to(&bytes, packet.addr)
                             .unwrap();
-                        packet.last_sent = now;
+                        packet.last_sent = Instant::now();
                     }
                 }
             }
@@ -200,6 +241,7 @@ impl SrdpSocket {
 
             shared_unacked_packets,
             shared_send_times,
+            shared_ack_info,
 
             packet_tx,
             packet_rx,
@@ -271,4 +313,25 @@ impl UnackedPacket {
 pub enum Packet {
     Important(Box<[u8]>),
     Normal(Box<[u8]>),
+}
+
+struct AckInfo {
+    should_ack: bool,
+    time: Instant,
+    ack_number: u8,
+    addr: Option<SocketAddr>,
+}
+
+impl AckInfo {
+    pub fn new() -> Self {
+        Self {
+            should_ack: false,
+            time: Instant::now(),
+            ack_number: 0,
+            addr: None,
+        }
+    }
+    pub fn as_header(&self) -> [u8; 1] {
+        [(self.ack_number & ID_MASK) | ACK_FLAG]
+    }
 }
