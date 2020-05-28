@@ -62,6 +62,9 @@ case "$3" in
   udp)
     PROTOCOL=udp
     ;;
+  srdp)
+    PROTOCOL=srdp
+    ;;
   *)
     echo "Unkown protocol $3. exiting"
     exit 1
