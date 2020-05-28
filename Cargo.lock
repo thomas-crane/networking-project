@@ -17,6 +17,7 @@ name = "traffic_consumer"
 version = "0.1.0"
 dependencies = [
  "common",
+ "protocol",
  "throughput_recorder",
 ]
 
@@ -25,5 +26,6 @@ name = "traffic_producer"
 version = "0.1.0"
 dependencies = [
  "common",
+ "protocol",
  "throughput_recorder",
 ]
