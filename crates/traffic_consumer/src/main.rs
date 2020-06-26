@@ -1,10 +1,10 @@
+mod srdp_consumer;
 mod tcp_consumer;
 mod udp_consumer;
-mod srdp_consumer;
 
+use crate::srdp_consumer::SrdpConsumer;
 use crate::tcp_consumer::TcpConsumer;
 use crate::udp_consumer::UdpConsumer;
-use crate::srdp_consumer::SrdpConsumer;
 use common::logger::Logger;
 
 fn main() {

@@ -19,7 +19,8 @@ impl Logger {
     /// a newline.
     pub fn log<S: AsRef<str>>(&mut self, string: S) {
         let log_time = unix_time();
-        write!(&mut self.stdout, "{},{}\n", log_time, string.as_ref()).expect("Cannot write to stdout");
+        write!(&mut self.stdout, "{},{}\n", log_time, string.as_ref())
+            .expect("Cannot write to stdout");
     }
 
     pub fn log_msg<S: AsRef<str>>(&mut self, string: S) {

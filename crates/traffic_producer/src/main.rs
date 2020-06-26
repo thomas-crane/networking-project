@@ -1,13 +1,13 @@
 mod payload;
 mod producer;
+mod srdp_producer;
 mod tcp_producer;
 mod udp_producer;
-mod srdp_producer;
 
 use crate::producer::{Producer, ProducerOptions, ProducerRun};
+use crate::srdp_producer::SrdpProducer;
 use crate::tcp_producer::TcpProducer;
 use crate::udp_producer::UdpProducer;
-use crate::srdp_producer::SrdpProducer;
 use std::env;
 
 fn main() {
