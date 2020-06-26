@@ -2,6 +2,8 @@
 
 *"Specialised protocols for use in real time applications: Adding reliability to unreliable protocols"*
 
+[![DOI](https://zenodo.org/badge/257837921.svg)](https://zenodo.org/badge/latestdoi/257837921)
+
 ## About
 
 This repository contains all of the code that I wrote for a university project in which I wrote a research paper. The
