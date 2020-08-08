@@ -10,17 +10,17 @@ const ACK_MASK: u8  = 0b00000111;
 const MAX_SEQ: u8   = 0b00000111;
 
 /// A packet which conforms to the LRDP protocol.
-pub struct LrdpPacket<'p> {
+pub struct LrdpPacket {
     has_ack: bool,
     has_data: bool,
     ack_num: u8,
     seq_num: u8,
-    data: &'p [u8],
+    data: Box<[u8]>,
 }
 
-impl<'p> LrdpPacket<'p> {
+impl LrdpPacket {
     /// Create an LRDP packet from a received buffer.
-    pub fn from_buffer(buf: &'p [u8]) -> Self {
+    pub fn from_buffer(buf: &[u8]) -> Self {
         let has_ack = ACK_FLAG & buf[0] == ACK_FLAG;
         let has_data = DATA_FLAG & buf[0] == DATA_FLAG;
         let ack_num = ACK_MASK & buf[0];
@@ -30,7 +30,7 @@ impl<'p> LrdpPacket<'p> {
             has_data,
             ack_num,
             seq_num,
-            data: &buf[1..],
+            data: buf[1..].into(),
         }
     }
 
@@ -38,7 +38,7 @@ impl<'p> LrdpPacket<'p> {
     ///
     /// + If `ack_num` is not `None`, this packet's ACK bit will be set.
     /// + If `seq_num` is not `None`, this packet's DATA bit will be set.
-    pub fn create(data: &'p [u8], ack_num: Option<u8>, seq_num: Option<u8>) -> Self {
+    pub fn create(data: Box<[u8]>, ack_num: Option<u8>, seq_num: Option<u8>) -> Self {
         Self {
             data,
             has_ack: ack_num.is_some(),
@@ -86,6 +86,11 @@ impl<'p> LrdpPacket<'p> {
     pub fn seq_num(&self) -> u8 {
         self.seq_num
     }
+
+    /// The data in this packet.
+    pub fn data(&self) -> &Box<[u8]> {
+        &self.data
+    }
 }
 
 #[cfg(test)]
@@ -104,13 +109,13 @@ mod tests {
         let packet = LrdpPacket::from_buffer(&[0b10110000, 1, 2, 3]);
         assert!(packet.has_data());
         assert_eq!(packet.seq_num(), 6);
-        assert_eq!(packet.data, &[1, 2, 3]);
+        assert_eq!(packet.data.as_ref(), &[1, 2, 3]);
     }
 
     #[test]
     fn test_create() {
-        let packet = LrdpPacket::create(&[1, 2, 3], Some(2), Some(3));
-        assert_eq!(packet.data, &[1, 2, 3]);
+        let packet = LrdpPacket::create(Box::new([1, 2, 3]), Some(2), Some(3));
+        assert_eq!(packet.data.as_ref(), &[1, 2, 3]);
         assert!(packet.has_data());
         assert!(packet.has_ack());
         assert_eq!(packet.ack_num(), 2);
@@ -119,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_as_buffer() {
-        let packet = LrdpPacket::create(&[4, 5, 6], None, Some(1));
+        let packet = LrdpPacket::create(Box::new([4, 5, 6]), None, Some(1));
         let buf = packet.as_buffer();
         assert_eq!(buf.as_slice(), &[0b10001000, 4, 5, 6]);
     }
