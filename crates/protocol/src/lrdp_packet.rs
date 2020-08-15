@@ -10,6 +10,7 @@ const ACK_MASK: u8  = 0b00000111;
 const MAX_SEQ: u8   = 0b00000111;
 
 /// A packet which conforms to the LRDP protocol.
+#[derive(Debug)]
 pub struct LrdpPacket {
     has_ack: bool,
     has_data: bool,
