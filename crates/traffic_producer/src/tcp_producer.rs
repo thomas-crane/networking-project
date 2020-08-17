@@ -28,7 +28,7 @@ impl Producer for TcpProducer {
         runner.logger.log(format!("0,0,{}", snapshot));
 
         let mut socket = TcpStream::connect(self.destination).expect("Cannot create TCP socket");
-        let delay_ms: u64 = (1000 / runner.opts.rate).into();
+        let delay_ms: u64 = (1000.0 / runner.opts.rate) as u64;
         let mut sent_sum = 0;
         let mut payload = create_payload(runner.opts.payload_size as usize);
         for i in 0..runner.opts.count {

@@ -28,7 +28,7 @@ impl Producer for UdpProducer {
 
         // since we are just sending stuff it doesn't really matter what we bind to.
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Cannot create UDP socket");
-        let delay_ms: u64 = (1000 / runner.opts.rate).into();
+        let delay_ms: u64 = (1000.0 / runner.opts.rate) as u64;
         let payload = create_payload(runner.opts.payload_size as usize);
         let mut sent_sum = 0;
         for i in 0..runner.opts.count {

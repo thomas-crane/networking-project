@@ -7,13 +7,13 @@ pub struct ProducerOptions {
     /// The number of packets to produce.
     pub count: u32,
     /// The rate in packets/sec at which traffic should be produced.
-    pub rate: u32,
+    pub rate: f32,
     /// The size in bytes of the payload for each packet.
     pub payload_size: u32,
 }
 
 impl ProducerOptions {
-    pub fn new(count: u32, rate: u32, payload_size: u32) -> Self {
+    pub fn new(count: u32, rate: f32, payload_size: u32) -> Self {
         Self {
             count,
             rate,

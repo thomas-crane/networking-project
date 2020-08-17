@@ -1,15 +1,15 @@
 use crate::payload::create_payload;
 use crate::producer::{Producer, ProducerRun};
-use protocol::srdp_socket::{Packet, SrdpSocket};
+use protocol::lrdp_socket::LrdpSocket;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::thread;
 use std::time::Duration;
 
-pub struct SrdpProducer {
+pub struct LrdpProducer {
     destination: SocketAddr,
 }
 
-impl SrdpProducer {
+impl LrdpProducer {
     pub fn new<T: ToSocketAddrs>(destination: T) -> Self {
         let addr = destination
             .to_socket_addrs()
@@ -21,29 +21,23 @@ impl SrdpProducer {
     }
 }
 
-impl Producer for SrdpProducer {
+impl Producer for LrdpProducer {
     fn run(&self, runner: &mut ProducerRun) {
         // log an initial snapshot.
         let snapshot = runner.snapshot().to_string();
         runner.logger.log(format!("0,0,{}", snapshot));
 
-        let mut socket = SrdpSocket::bind("0.0.0.0:0").expect("Cannot create SRDP socket");
-        let delay_ms: u64 = (1000 / runner.opts.rate).into();
+        let mut socket = LrdpSocket::bind("0.0.0.0:0").expect("Cannot create LRDP socket");
+        let delay_ms: u64 = (1000.0 / runner.opts.rate) as u64;
         let mut sent_sum = 0;
         for i in 0..runner.opts.count {
             runner
                 .logger
                 .log_msg(format!("Sending packet {} of {}", i + 1, runner.opts.count));
             let payload = create_payload(runner.opts.payload_size as usize);
-            // assume that every 20th packet is important.
-            let packet = if i % 20 == 0 {
-                Packet::Important(payload.into_boxed_slice())
-            } else {
-                Packet::Normal(payload.into_boxed_slice())
-            };
             socket
-                .send_to(packet, self.destination)
-                .expect("Cannot send data");
+                .send_to(self.destination, payload.as_slice())
+                .unwrap();
             sent_sum += runner.opts.payload_size;
             // log the total packets sent, total bytes sent, and the current snapshot.
             let snapshot = runner.snapshot().to_string();
@@ -54,7 +48,9 @@ impl Producer for SrdpProducer {
         }
         // send a "closing" packet.
         socket
-            .send_to(Packet::Important(Box::new([])), self.destination)
-            .expect("Cannot close socket");
+            .send_to(self.destination, &[])
+            .unwrap();
+
+        socket.stop();
     }
 }
