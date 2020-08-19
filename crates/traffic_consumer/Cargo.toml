@@ -10,3 +10,4 @@ edition = "2018"
 throughput_recorder = { path = "../throughput_recorder" }
 common = { path = "../common" }
 protocol = { path = "../protocol" }
+pretty_env_logger = "0.4.0"
