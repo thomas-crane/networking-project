@@ -132,15 +132,16 @@ impl LrdpSocket {
                     );
                     let mut clients = reader_clients.lock().unwrap();
 
-                    // if the client sent us a bad value then drop it.
                     let ack_result = clients.get_mut(&addr).unwrap().ack(packet.ack_num());
+                    // log if there was a bad value but don't do anything. This can happen in some
+                    // cases where two acks for the same packet are sent because of high latency on
+                    // the network.
                     if let Err(ClientError::WrongAck(_)) = ack_result {
-                        log::error!(
+                        log::warn!(
                             target: &this_addr,
-                            "... WrongAck {}. Dropping client",
+                            "... WrongAck {}. Ignoring.",
                             packet.ack_num()
                         );
-                        reader_clients.lock().unwrap().remove(&addr);
                     }
                 }
 
