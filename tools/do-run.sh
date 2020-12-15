@@ -62,8 +62,8 @@ case "$3" in
   udp)
     PROTOCOL=udp
     ;;
-  srdp)
-    PROTOCOL=srdp
+  lrdp)
+    PROTOCOL=lrdp
     ;;
   *)
     echo "Unkown protocol $3. exiting"
@@ -73,7 +73,7 @@ esac
 
 # do the run
 echo "Running"
-./run.sh $PROTOCOL 1000 10 $PAYLOAD_SIZE
+./run.sh $PROTOCOL 300 0.5 $PAYLOAD_SIZE
 
 # move files
 # folder is logs/payload_size/protocol/network_quality/runs

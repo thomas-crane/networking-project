@@ -13,12 +13,12 @@ fi
 source `realpath ./set-ips.sh`
 
 # start the consumer (in the background).
-docker exec consumer traffic_consumer $1 > consumer.txt &
+docker exec -e RUST_LOG=debug consumer traffic_consumer $1 > consumer.txt &
 # allow it to start for a second.
 sleep 1
 
 # start the producer.
-docker exec -e CONSUMER_IP producer traffic_producer $1 $2 $3 $4 > producer.txt
+docker exec -e RUST_LOG=debug -e CONSUMER_IP producer traffic_producer $1 $2 $3 $4 > producer.txt
 
 # wait for the consumer to shut down before exiting.
 wait
