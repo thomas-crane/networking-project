@@ -21,7 +21,7 @@ interface AveragedRun {
 const graphRender = new CanvasRenderService(1000, 400);
 const logRoot = join(__dirname, '..', '..', 'logs');
 
-function getStats(file: string): AveragedRun[] {
+export function getStats(file: string): AveragedRun[] {
   const fileDir = dirname(file);
   // tslint:disable-next-line: no-var-requires
   const runFile: Test = require(file);
@@ -51,27 +51,13 @@ function createGraph(figNum: number, protocol: string, avg512: AveragedRun[], av
       labels: ['Normal', 'Acceptable', 'Degraded', 'Horrible'],
       datasets: [
         {
-          label: 'Overhead at 512 bytes',
-          data: avg512.map((a) => a.overhead),
-          fill: false,
-          borderDash: [10, 5],
-          borderColor: '#fcad00'
-        },
-        {
-          label: 'Overhead at 64 bytes',
+          label: 'Overhead',
           data: avg64.map((a) => a.overhead),
           fill: false,
           borderColor: '#f05316'
         },
         {
-          label: 'Payload bytes received at 512 bytes',
-          data: avg512.map((a) => 1 - a.loss),
-          fill: false,
-          borderDash: [10, 5],
-          borderColor: '#3d9be3'
-        },
-        {
-          label: 'Payload bytes received at 64 bytes',
+          label: 'Payload bytes received',
           data: avg64.map((a) => 1 - a.loss),
           fill: false,
           borderColor: '#1838ed'
@@ -114,7 +100,7 @@ function createGraph(figNum: number, protocol: string, avg512: AveragedRun[], av
   });
 }
 
-const protocols = ['tcp', 'udp', 'srdp'];
+const protocols = ['tcp', 'lrdp'];
 for (let i = 0; i < protocols.length; i++) {
   const protocol = protocols[i];
   console.log(`[${protocol}] reading logs`)
