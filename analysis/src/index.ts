@@ -44,7 +44,7 @@ export function getStats(file: string): AveragedRun[] {
   return avgs;
 }
 
-function createGraph(figNum: number, protocol: string, avg512: AveragedRun[], avg64: AveragedRun[]): void {
+function createGraph(figNum: number, protocol: string, avg64: AveragedRun[]): void {
   const chartConfig: ChartConfiguration = {
     type: 'line',
     data: {
@@ -104,7 +104,6 @@ const protocols = ['tcp', 'lrdp'];
 for (let i = 0; i < protocols.length; i++) {
   const protocol = protocols[i];
   console.log(`[${protocol}] reading logs`)
-  const avg512 = getStats(join(logRoot, 'stream', protocol, 'run.json'));
   const avg64 = getStats(join(logRoot, 'iot', protocol, 'run.json'));
-  createGraph(i + 1, protocol, avg512, avg64);
+  createGraph(i + 1, protocol, avg64);
 }
