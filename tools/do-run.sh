@@ -1,6 +1,7 @@
-# usage: ./do-run.sh normal iot udp 1
+# usage: ./do-run.sh normal iot udp 1 [10]
 # meaning, use normal network conditions, iot payload size, udp protocol, and
-# this is run number 1.
+# this is run number 1. The optional 5th argument is number of packets to
+# send. Defaults to 300.
 
 # refresh containers
 echo "Refreshing containers..."
@@ -29,6 +30,11 @@ case "$1" in
     # horrible network
     docker exec consumer tc qdisc add dev eth0 root netem delay 150ms 30ms loss random 12%
     docker exec producer tc qdisc add dev eth0 root netem delay 150ms 30ms loss random 12%
+    ;;
+  stress)
+    # stress testing reliability features
+    docker exec consumer tc qdisc add dev eth0 root netem delay 40ms 20ms loss random 20%
+    docker exec producer tc qdisc add dev eth0 root netem delay 40ms 20ms loss random 20%
     ;;
   *)
     echo "Unknown network quality $1. exiting"
@@ -62,8 +68,8 @@ case "$3" in
   udp)
     PROTOCOL=udp
     ;;
-  srdp)
-    PROTOCOL=srdp
+  lrdp)
+    PROTOCOL=lrdp
     ;;
   *)
     echo "Unkown protocol $3. exiting"
@@ -73,7 +79,7 @@ esac
 
 # do the run
 echo "Running"
-./run.sh $PROTOCOL 1000 10 $PAYLOAD_SIZE
+./run.sh $PROTOCOL ${5:-300} 0.5 $PAYLOAD_SIZE
 
 # move files
 # folder is logs/payload_size/protocol/network_quality/runs

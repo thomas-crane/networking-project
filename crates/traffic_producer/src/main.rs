@@ -1,16 +1,19 @@
 mod payload;
 mod producer;
-mod srdp_producer;
+mod lrdp_producer;
 mod tcp_producer;
 mod udp_producer;
 
+use pretty_env_logger;
+
 use crate::producer::{Producer, ProducerOptions, ProducerRun};
-use crate::srdp_producer::SrdpProducer;
+use crate::lrdp_producer::LrdpProducer;
 use crate::tcp_producer::TcpProducer;
 use crate::udp_producer::UdpProducer;
 use std::env;
 
 fn main() {
+    pretty_env_logger::init();
     // get args.
     let mut args = std::env::args().skip(1);
     let mode = args
@@ -22,7 +25,7 @@ fn main() {
         .expect("Usage: producer MODE COUNT RATE PAYLOAD_SIZE");
     let rate = args
         .next()
-        .and_then(|c| c.parse::<u32>().ok())
+        .and_then(|c| c.parse::<f32>().ok())
         .expect("Usage: producer MODE COUNT RATE PAYLOAD_SIZE");
     let payload_size = args
         .next()
@@ -37,7 +40,7 @@ fn main() {
     let producer: Box<dyn Producer> = match mode.as_str() {
         "tcp" => Box::new(TcpProducer::new(&addrs)),
         "udp" => Box::new(UdpProducer::new(&addrs)),
-        "srdp" => Box::new(SrdpProducer::new(&addrs)),
+        "lrdp" => Box::new(LrdpProducer::new(&addrs)),
         _ => panic!("Unsupported producer type"),
     };
 

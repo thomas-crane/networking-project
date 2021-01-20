@@ -16,4 +16,4 @@ RUN find /usr/src/networking-project/target/x86_64-unknown-linux-musl/release/* 
       -perm /a+x \
       -type f \
       -exec cp {} /usr/bin/ \; && \
-    apk add iproute2
+    apk add iproute2 tcpdump

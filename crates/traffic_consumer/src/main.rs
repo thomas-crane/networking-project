@@ -1,13 +1,16 @@
-mod srdp_consumer;
+mod lrdp_consumer;
 mod tcp_consumer;
 mod udp_consumer;
 
-use crate::srdp_consumer::SrdpConsumer;
+use pretty_env_logger;
+
+use crate::lrdp_consumer::LrdpConsumer;
 use crate::tcp_consumer::TcpConsumer;
 use crate::udp_consumer::UdpConsumer;
 use common::logger::Logger;
 
 fn main() {
+    pretty_env_logger::init();
     let mut args = std::env::args().skip(1);
 
     let mode = args.next().expect("Usage: consumer MODE");
@@ -22,8 +25,8 @@ fn main() {
             let mut consumer = UdpConsumer::new(logger);
             consumer.consume();
         }
-        "srdp" => {
-            let mut consumer = SrdpConsumer::new(logger);
+        "lrdp" => {
+            let mut consumer = LrdpConsumer::new(logger);
             consumer.consume();
         }
         _ => panic!("No consumer for mode {}", mode),

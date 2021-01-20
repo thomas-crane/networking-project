@@ -12,13 +12,19 @@ fi
 # set the IPs.
 source `realpath ./set-ips.sh`
 
+# start tcpdump on the consumer
+docker exec consumer tcpdump -n udp -w consumer.pcap &
+
 # start the consumer (in the background).
-docker exec consumer traffic_consumer $1 > consumer.txt &
+docker exec -e RUST_LOG=debug consumer traffic_consumer $1 > consumer.txt &
 # allow it to start for a second.
 sleep 1
 
+# start tcpdump on the producer.
+docker exec producer tcpdump -n udp -w producer.pcap &
+
 # start the producer.
-docker exec -e CONSUMER_IP producer traffic_producer $1 $2 $3 $4 > producer.txt
+docker exec -e RUST_LOG=debug -e CONSUMER_IP producer traffic_producer $1 $2 $3 $4 > producer.txt
 
 # wait for the consumer to shut down before exiting.
 wait
